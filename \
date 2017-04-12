@@ -1,0 +1,58 @@
+import numpy as np
+import os
+import re
+
+
+def read_data(config):
+	sentiments = ['neg', 'pos']
+	train_data = []
+	test_data = []
+
+
+	for sentiment in sentiments:
+		data_cnt = 0
+		for roots, dirs, files in os.walk(os.path.join(config.data_dir, sentiment)):
+			for file_name in files:
+				with open(os.path.join(roots, file_name), "r", encoding='utf-8', errors='ignore') as f:
+					data_cnt += 1
+					context = context2word(str(f.readlines()))
+					if data_cnt <= len(files) * config.train_data_ratio:
+						train_data.append({"context" : context, "sentiment" : sentiment})
+					else:
+						test_data.append({"context" : context, "sentiment" : sentiment})
+
+	print("Loading {} train data".format(len(train_data)))
+	print("Loading {} test data".format(len(test_data)))
+	
+	return train_data, test_data
+
+
+def context2word(context):
+	context = re.sub('[,.\-:()\\[\]?!"\']+', ' ', context)
+	context = context.replace('\\n', ' ').replace('\\','')
+	context = context.split()
+	return context
+
+
+def write_wordic(train_data, test_data):
+	wordic = []
+	all_data = train_data + test_data
+	for _, contents in enumerate(all_data):
+		for word in contents["context"]:
+			if not word in wordic:
+				wordic.append(word)
+	
+	print("word dic size : {}".format(len(wordic)))
+
+	return wordic
+
+
+def word2vec(train_data, test_data, wordic):
+	for data in [train_data, test_data]:
+		print(data["sentiment"])
+		train_input[] = sentiment
+	
+	return 
+
+
+
