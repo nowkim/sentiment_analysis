@@ -9,7 +9,7 @@ def get_config():
 	flags.DEFINE_string("word_freq_limit", 10, "Data dir")
 
 	flags.DEFINE_string("mode", "train", "mode")
-	flags.DEFINE_string("initial_scale", 0.05, "initial_scale")
+	flags.DEFINE_string("init_scale", 0.05, "initial_scale")
 
 	flags.DEFINE_string("train_data_ratio", 0.8, "train data")
 	

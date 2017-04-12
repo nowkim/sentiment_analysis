@@ -19,8 +19,14 @@ def main():
 	train_X, train_Y, test_X, test_Y = one_hot(unk_train_data, unk_test_data, max_len_context, wordic)
 	
 
-	basicLSTM(config, len(wordic), max_len_context, train_X, train_Y)
 
+
+	with tf.Graph().as_default():
+		initializer = tf.random_uniform_initializer(-config.init_scale, config.init_scale)
+		
+		_build()
+	
+		_feed()
 
 
 if __name__ == "__main__":

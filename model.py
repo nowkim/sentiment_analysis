@@ -2,6 +2,22 @@ import tensorflow as tf
 import numpy as np
 
 
+def _build():
+	return
+
+
+def _feed():
+	sessConfig = tf.ConfigProto(allow_soft_placement=True, log_device_placement=True)
+	sessConfig.gpu_options.allow_growth = True
+	sv = tf.train.Supervisor(logdir=FLAGS.save_path)
+	with sv.managed_session(config=sessConfig) as session:
+		for i in range(config.max_max_epoch):
+			_train()
+
+		_test()
+	
+	return
+
 
 def LSTM(config, train_X, train_Y):
 	lstm = tf.contrib.rnn.BasicLSTMCell(config.lstm_hidden_size, state_is_tuple=False)
