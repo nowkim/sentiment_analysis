@@ -10,23 +10,23 @@ def main():
 	config = get_config()
 	
 	# read data
-	raw_train_data, raw_test_data, max_len_context = read_data(config)
+	train_data, test_data, max_len_context = read_data(config)
 	
 	# write a word dictionary
-	unk_train_data, unk_test_data, wordic = write_wordic(config, raw_train_data, raw_test_data)
+	wordic = write_wordic(config, train_data)
 	
-	# one hot encoding
-	train_X, train_Y, test_X, test_Y = one_hot(unk_train_data, unk_test_data, max_len_context, wordic)
 	
 
+	basicLSTM(config, wordic, max_len_context, train_data, test_data)
 
-
+	'''
 	with tf.Graph().as_default():
 		initializer = tf.random_uniform_initializer(-config.init_scale, config.init_scale)
 		
-		_build()
+		_build(config)
 	
-		_feed()
+		_feed(config, train_X, train_Y, test_X, test_Y)
+	'''
 
 
 if __name__ == "__main__":

@@ -14,11 +14,13 @@ def get_config():
 	flags.DEFINE_string("train_data_ratio", 0.8, "train data")
 	
 	# MODEL
-	flags.DEFINE_string("lstm_hidden_size", 128, "hidden size of lstm")
-	flags.DEFINE_string("batch_size", 5, "Batch size")
+	flags.DEFINE_string("embedding_size", 128, "embedding size")
+	flags.DEFINE_string("lstm_hidden_size", 64, "hidden size of lstm")
+	flags.DEFINE_string("batch_size", 10, "Batch size")
 	flags.DEFINE_string("keep_prob", 0.5, "drop out")
 	flags.DEFINE_string("num_lstm_layers", 2, "the number of lstm layers")
-	flags.DEFINE_string("lr", 0.001, "learning rate")
+	flags.DEFINE_string("lr", 0.01, "learning rate")
+	flags.DEFINE_string("max_iter", 100, "the num of iterations")
 
 
 	config = flags.FLAGS

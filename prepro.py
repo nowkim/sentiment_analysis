@@ -1,6 +1,7 @@
 import numpy as np
 import os
 import re
+import math
 
 
 def read_data(config):
@@ -9,26 +10,43 @@ def read_data(config):
 	test_data = []
 	max_len_context = 0
 
+
+	###  read   ###
 	for sentiment in sentiments:
-		data_cnt = 0
+		data_idx = 0
 		for roots, dirs, files in os.walk(os.path.join(config.data_dir, sentiment)):
 			for file_name in files:
 				with open(os.path.join(roots, file_name), "r", encoding='utf-8', errors='ignore') as f:
-					data_cnt += 1
+					data_idx += 1
 					context = tokenize(str(f.readlines()))
 					if len(context) > max_len_context:
 						max_len_context = len(context)
-					if data_cnt <= len(files) * config.train_data_ratio * 0.02:
+					if data_idx <= len(files) * config.train_data_ratio * 0.1:
 						train_data.append({"context" : context, "sentiment" : sentiment})
-					elif data_cnt <= len(files) * 0.02:
+					elif data_idx <= len(files) * 0.1:
 						test_data.append({"context" : context, "sentiment" : sentiment})
-					else :
+					else:
 						break
-	
+
 	print("Loading {} train data".format(len(train_data)))
 	print("Loading {} test data".format(len(test_data)))
 	print("max length of context :  {}".format(max_len_context))
 	
+	
+	###  padding  ###
+	for data_idx, data in enumerate(train_data + test_data):
+		if (data_idx+1) % (len(train_data + test_data)*0.25) == 0:
+			print("{}% of the 'padding' process has been completed".format(int((data_idx+1)/len(train_data+test_data)*100)))
+		if len(data["context"]) < max_len_context:
+			for _ in range(len(data["context"]), max_len_context):
+				if data_idx < len(train_data+test_data) * config.train_data_ratio:
+					train_data[data_idx]["context"].append("$PAD$")
+				else:
+					test_data[data_idx - len(train_data)]["context"].append("$PAD$")
+	
+	np.random.shuffle(train_data)
+	np.random.shuffle(test_data)	
+
 	return train_data, test_data, max_len_context
 
 
@@ -40,68 +58,66 @@ def tokenize(context):
 	return context
 
 
-def write_wordic(config, train_data, test_data):
+def write_wordic(config, train_data):
 	print('writing a dictionary . . . ')
-	wordic = ['$UNK$']
+	wordic = ['$UNK$','$PAD$']
 	word_freq = {}
-	all_data = train_data + test_data
-	for _, contents in enumerate(all_data):
+
+	for _, contents in enumerate(train_data):
 		for word in contents["context"]:
 			if not word in word_freq.keys():
 				word_freq[word] = 1
 			else:
 				word_freq[word] += 1
+
 	for w,freq in word_freq.items():
-		if freq	< config.word_freq_limit:
-			for i, contents in enumerate(all_data):
-				for j,word in enumerate(contents['context']):
-					all_data[i]['context'][j] = '$UNK$'
-			continue
-		else:
-			if not w in wordic:
-				wordic.append(w)
+		if not w in wordic and freq >= config.word_freq_limit:
+			wordic.append(w)
 
 	print("There are {} words in the dictionary".format(len(wordic)))
 
-	return all_data[0:len(train_data)-1], all_data[len(train_data):len(all_data)-1], wordic
+	return wordic
 
 
-def one_hot(train_data, test_data, max_len_context, wordic):
-	print("--- one hot encoding ---")
-	train_X = np.array([[[]]])
-	train_Y = np.array([[]])
+def one_hot(data_X, data_Y, max_len_context, wordic):
+	input_X = np.array([[[]]])
+	input_Y = np.array([[]])
 
-	test_X = np.array([[[]]])
-	test_Y = np.array([[]])
+	for loop, data in enumerate(data_X):
+		one_hot = np.zeros((max_len_context, len(wordic)))
+		one_hot[np.arange(max_len_context), 
+				np.array([wordic.index(data[i]) if data[i] in wordic else wordic.index('$UNK$') for i in range(max_len_context)])] = 1
+		one_hot = one_hot.reshape(1, max_len_context, len(wordic))
 
-	loop = 0
-	for data in [train_data, test_data]:
-		for _, contents in enumerate(data):
-			loop += 1
-			one_hot = np.array([[[int(i == wordic.index(contents['context'][j])) if j<len(contents['context']) else 0 for i in range(len(wordic))] for j in range(max_len_context)]])
-			print('onehot shape',one_hot.shape)
-			print('x shape',train_X.shape)
-			print('y shape',train_Y.shape)
-			if loop % 10 == 0:
-				print("{}% of the process has been completed".format(loop/len(train_data+test_data)*100))
-			if loop == 1:
-				train_X = one_hot
-				train_Y = np.array([[int(contents['sentiment']=="neg"), int(contents['sentiment']=="pos")]])
-				continue
-			elif loop <= len(train_data):
-				train_X = np.concatenate((train_X, one_hot))
-				train_Y = np.concatenate((train_Y, np.array([[int(contents['sentiment']=="neg"), int(contents['sentiment']=="pos")]])))
-			elif loop == len(train_data)+1:
-				test_X = one_hot
-				test_Y = np.array([[int(contents['sentiment']=="neg"), int(contents['sentiment']=="pos")]])
-				continue	
+			#one_hot = np.array([[[int(i == wordic.index(contents['context'][j])) for i in range(len(wordic))] if contents['context'][j] in wordic else [int(i == wordic.index('$UNK$')) for i in range(len(wordic))] for j in range(max_len_context)]])
+		if loop == 0:
+			input_X = one_hot
+			input_Y = np.array([[int(data_Y[loop]=="neg"), int(data_Y[loop]=="pos")]])
+			continue
+		else:
+			input_X = np.concatenate((input_X, one_hot))
+			input_Y = np.concatenate((input_Y, np.array([[int(data_Y[loop]=="neg"), int(data_Y[loop]=="pos")]])))
+
+	print(input_X.shape, input_Y.shape)
+
+	return input_X, input_Y
+
+
+def word2index(data_X, data_Y, wordic):
+	input_X = data_X
+	input_Y = np.array([[]])
+	for i, para in enumerate(input_X):
+		for j, word in enumerate(para):
+			if word in wordic:
+				input_X[i][j] = wordic.index(word)
 			else:
-				test_X = np.concatenate((test_X, one_hot))
-				test_Y = np.concatenate((test_Y, np.array([[int(contents['sentiment']=="neg"), int(contents['sentiment']=="pos")]])))
+				input_X[i][j] = wordic.index('$UNK$')
+	for loop, senti in enumerate(data_Y):
+		if loop == 0:
+			input_Y = np.array([[int(data_Y[loop]=="neg"), int(data_Y[loop]=="pos")]])
+		else:
+			input_Y = np.concatenate((input_Y, np.array([[int(data_Y[loop]=="neg"), int(data_Y[loop]=="pos")]])))
 
-	
-	return train_X, train_Y, test_X, test_Y
-
-
+	return input_X, input_Y
 
 
