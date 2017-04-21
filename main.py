@@ -10,14 +10,14 @@ def main():
 	config = get_config()
 	
 	# read data
-	train_data, test_data, max_len_context = read_data(config)
+	train_data, test_data, max_len_context, train_x_len, test_x_len = read_data(config)
 	
 	# write a word dictionary
 	wordic = write_wordic(config, train_data)
 	
 	
 
-	basicLSTM(config, wordic, max_len_context, train_data, test_data)
+	basicLSTM(config, wordic, max_len_context, train_x_len, test_x_len, train_data, test_data)
 
 	'''
 	with tf.Graph().as_default():

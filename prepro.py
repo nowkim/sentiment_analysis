@@ -9,6 +9,8 @@ def read_data(config):
 	train_data = []
 	test_data = []
 	max_len_context = 0
+	train_x_len = []
+	test_x_len = []
 
 
 	###  read   ###
@@ -21,10 +23,12 @@ def read_data(config):
 					context = tokenize(str(f.readlines()))
 					if len(context) > max_len_context:
 						max_len_context = len(context)
-					if data_idx <= len(files) * config.train_data_ratio * 0.1:
+					if data_idx <= len(files) * config.train_data_ratio:
 						train_data.append({"context" : context, "sentiment" : sentiment})
-					elif data_idx <= len(files) * 0.1:
+						train_x_len.append(len(context))
+					elif data_idx <= len(files):
 						test_data.append({"context" : context, "sentiment" : sentiment})
+						test_x_len.append(len(context))
 					else:
 						break
 
@@ -35,8 +39,6 @@ def read_data(config):
 	
 	###  padding  ###
 	for data_idx, data in enumerate(train_data + test_data):
-		if (data_idx+1) % (len(train_data + test_data)*0.25) == 0:
-			print("{}% of the 'padding' process has been completed".format(int((data_idx+1)/len(train_data+test_data)*100)))
 		if len(data["context"]) < max_len_context:
 			for _ in range(len(data["context"]), max_len_context):
 				if data_idx < len(train_data+test_data) * config.train_data_ratio:
@@ -46,8 +48,10 @@ def read_data(config):
 	
 	np.random.shuffle(train_data)
 	np.random.shuffle(test_data)	
+			
+	print("the 'padding' process has been completed")
 
-	return train_data, test_data, max_len_context
+	return train_data, test_data, max_len_context, train_x_len, test_x_len
 
 
 def tokenize(context):
@@ -77,6 +81,7 @@ def write_wordic(config, train_data):
 	print("There are {} words in the dictionary".format(len(wordic)))
 
 	return wordic
+
 
 
 def one_hot(data_X, data_Y, max_len_context, wordic):
