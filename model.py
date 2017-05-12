@@ -200,6 +200,3 @@ class senti_anal_model(object):
 		grads_and_vars = optimizer.compute_gradients(self.cost)
 		self.train = optimizer.apply_gradients(grads_and_vars, global_step=self.global_step)
 
-		
-
-

@@ -2,4 +2,7 @@ data
 __pycache__
 *.pyc
 *.swp
+<<<<<<< HEAD
 glove
+=======
+>>>>>>> 3227760cc68ea6652b94d89cd79e101213042eb6
