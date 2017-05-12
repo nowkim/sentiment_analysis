@@ -1,205 +1,205 @@
 import tensorflow as tf
 import numpy as np
-from prepro import one_hot, word2index
 import sys
+from tensorflow.contrib.tensorboard.plugins import projector
+import os
+import time
+import datetime
 
 
-def _build(config):
-	with tf.name_scope("Train"):
-		with tf.variable_scope("Model", reuse=None, initializer=initializer):
-			m = lstm_model(config)
-	return
-
-
-def _feed(config, train_X, train_Y, test_X, test_Y):
-	sessConfig = tf.ConfigProto(allow_soft_placement=True, log_device_placement=True)
-	sessConfig.gpu_options.allow_growth = True
-	sv = tf.train.Supervisor(logdir=FLAGS.save_path)
-	with sv.managed_session(config=sessConfig) as session:
-		for i in range(config.max_max_epoch):
-			_train()
-
-		_test()
+class senti_anal_model(object):
 	
-	return
+	def __init__(self, config, seqlen, wordic):
+		sessConfig = tf.ConfigProto(allow_soft_placement=True, log_device_placement=True)
+		sessConfig.gpu_options.allow_growth = True
+		self.session = tf.Session(config=sessConfig)
+		self.batch_size = config.batch_size
+		self.lstm_size = config.lstm_hidden_size
+		self.wordic = wordic
+		self.vocab_size = len(wordic)
+		self.num_lstm_layer = config.num_lstm_layer
+		self.pre_trained = config.pre_trained
+		self.time_step_size = seqlen
+		self.sequence_length = seqlen
+		self.embedding_size = config.embedding_size
+		self.lr = tf.Variable(0.0, trainable = False)
+		self.max_grad_norm = config.max_grad_norm
 
-'''
-class lstm_model(config):
-	lstm = tf.contrib.rnn.BasicLSTMCell(lstm_size, state_is_tuple=False)
-	stacked_lstm = tf.contrib.rnn.MultiRNNCell([lstm] * number_of_layers, state_is_tuple=False)
+		# cnn
+		self.filter_sizes = config.filter_sizes
+		self.num_filters = config.num_filters
 
-	words = tf.placeholder(tf.int32, [batch_size, num_steps])
-y
-y
+		self.lstm()
+		self.session.run(tf.global_variables_initializer())
 
-
-	initial_state = state = stacked_lstm.zero_state(batch_size, tf.float32)
-	for i in range(num_steps):
-		output, state = stacked_lstm(words[:, i], state)
-
-	final_state = state
-'''
-
-
-def _train():
-	numpy_state = initial_state.eval()
-	total_loss = 0.0
-	for current_batch_of_words in words_in_dataset:
-		numpy_state, current_loss = session.run([final_state, loss],
-		# Initialize the LSTM state from the previous iteration.
-			feed_dict={initial_state: numpy_state, words: current_batch_of_words})
-		total_loss += current_loss
-
-
-def _test():
-	numpy_state = initial_state.eval()
-	total_loss = 0.0
-	for current_batch_of_words in words_in_dataset:
-		numpy_state, current_loss = session.run([final_state, loss],
-		# Initialize the LSTM state from the previous iteration.
-			feed_dict={initial_state: numpy_state, words: current_batch_of_words})
-		total_loss += current_loss
-
-
-
-
-
-
-def LSTM(config, train_X, train_Y):
-	lstm = tf.contrib.rnn.BasicLSTMCell(config.lstm_hidden_size, state_is_tuple=False)
-	state = tf.zeros([config.batch_size, lstm.state_size])
-	probabilities = []
-	loss = 0.0
-
-	attn_cell = lstm
-	if is_training:
-		attn_cell = tf.contrib.rnn.DropoutWrapper(lstm, output_keep_prob=config.keep_prob)
-	cell = tf.contrib.rnn.MultiRNNCell([attn_cell for _ in range(config.num_lstm_layers)], state_is_tuple=False)
-
-
-
-			
-
-def basicLSTM(config, wordic, max_len_context, train_data, test_data):
+	def lstm(self):
+		now = time.localtime()
+		print("== lstm layer == build start at {}:{}:{}".format(now.tm_hour, now.tm_min, now.tm_sec))
+		self.x = tf.placeholder(tf.int32, [None, self.time_step_size])
+		self.y = tf.placeholder(tf.int32, [None, 2])
+		self.seqlen = tf.placeholder(tf.int32, [None])
+		self.keep_prob = tf.placeholder(tf.float32)
 	
-	train_X = []
-	train_Y = []
-	test_X = []
-	test_Y = []
-	for data in train_data:
-		train_X.append(data['context'])
-		train_Y.append(data['sentiment'])
-	for data in test_data:
-		test_X.append(data['context'])
-		test_Y.append(data['sentiment'])
-
-
-	batch_size = config.batch_size
-	lstm_size = config.lstm_hidden_size
-	time_step_size = max_len_context
-	vocab_size = len(wordic)
-	lr = config.lr
-
-	#x = tf.placeholder(tf.float32, [None, time_step_size, vocab_size])
-	x = tf.placeholder(tf.int32, [None, time_step_size])
-	y = tf.placeholder(tf.int32, [None, 2])
-	
-	w = tf.Variable(tf.random_normal([lstm_size, 2]))
-	b = tf.Variable(tf.random_normal([2]))
-
-	# embedding
-	embeddings = tf.Variable(
-			tf.random_uniform([vocab_size, config.embedding_size], -1.0, 1.0))
-	embed = tf.nn.embedding_lookup(embeddings, x)
-
-	print(embed)
-
-	lstm_cell = tf.contrib.rnn.BasicLSTMCell(lstm_size)
-
-	state = lstm_cell.zero_state(batch_size, dtype=tf.float32)
-
-	outputs = []
-	with tf.variable_scope('rnn') as scope:
-		for time_step in range(time_step_size):
-			if time_step != 0:
-				scope.reuse_variables()
-			cell_output, state = lstm_cell(embed[:,time_step,:], state)
-			outputs.append(cell_output)
-
-	pred = tf.matmul(outputs[-1], w) + b
-
-	cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=y, logits=pred))
-	tf.summary.scalar("cost_summary", cost)
-	train = tf.train.AdamOptimizer(learning_rate=lr).minimize(cost)
-	tf.summary.scalar("learning rate", lr)
-
-	merged = tf.summary.merge_all()
-
-	correct_pred = tf.equal(tf.argmax(pred,1), tf.argmax(y,1))
-	accuracy = tf.reduce_mean(tf.cast(correct_pred, tf.float32))
-
-	init = tf.global_variables_initializer()
-
-	sessConfig = tf.ConfigProto(allow_soft_placement=True, log_device_placement=True)
-	sessConfig.gpu_options.allow_growth = True
-
-	print('before sess.run')
-	with tf.Session(config=sessConfig) as sess:
-		sess.run(init)
-
-		print("batch size : {}\n{} iterations".format(batch_size, len(train_X)//batch_size))
-		for iteration in range(len(train_X)//batch_size):
-			batch_x = []
-			batch_y = []
-			for data_idx in range(batch_size):
-				batch_x.append(train_X[data_idx])
-				batch_y.append(train_Y[data_idx])
-			batch_x, batch_y = word2index(batch_x, batch_y, wordic)
-			#batch_x, batch_y = one_hot(batch_x, batch_y, max_len_context, wordic)
-			sess.run(train, feed_dict={x: batch_x, y: batch_y})
-			summary, loss = sess.run([merged, cost], feed_dict={x: batch_x, y: batch_y})
-			if (iteration+1) != 1 and (iteration+1) % 5 == 0:
-				print("{} iterations, loss : {}".format(iteration+1, loss))
-		print("train complete!")
-		#print(len(test_X[0]), len(test_X[1]), len(test_X[2]))
-		#print(test_X[0].shape, test_X[1].shape, test_X[2].shape)
-
-		test_acc = 0
-		for iteration in range(len(test_X)//batch_size):
-			tbatch_x = []
-			tbatch_y = []
-			for data_idx in range(batch_size):
-				tbatch_x.append(test_X[data_idx])
-				tbatch_y.append(test_Y[data_idx])
-			tbatch_x, tbatch_y = one_hot(tbatch_x, tbatch_y, max_len_context, wordic)
-			test_acc += accuracy.eval(feed_dict={x: tbatch_x, y: tbatch_y})
-			if (iteration+1) != 1 and (iteration+1) % 5 == 0:
-				print("{} iterations".format(iteration+1))
+		w = tf.Variable(tf.random_normal([self.lstm_size, 2]))
+		b = tf.Variable(tf.constant(0.0, shape=[2]))
 		
-		print("test accuracy: ", test_acc / (len(test_X)//batch_size))
+		
+		# embedding
+		if not self.pre_trained:
+			embeddings = tf.Variable(
+							tf.random_uniform([self.vocab_size, self.embedding_size], -1.0, 1.0), name="word_embedding")
+		else:
+			glove = {}
+			embedding_table = []
+			with open('./glove/glove.6B.'+str(self.embedding_size)+'d.txt', 'r', encoding='utf-8', errors='ignore') as f:
+				while True:
+					line = f.readline()
+					if not line: break
+					line = line.split()
+					for idx in range(len(line[1:])):
+						line[idx+1] = float(line[idx+1])
+					glove[line[0]] = line[1:]
+
+			for _, word in enumerate(self.wordic):
+				if not word in glove.keys():
+					embedding_table.append([0.0 for _ in range(self.embedding_size)])
+				else:
+					embedding_table.append(glove[word])
+
+			embeddings = tf.Variable(embedding_table, trainable=False, name='word_embedding')
+		
+		embed = tf.nn.embedding_lookup(embeddings, self.x)
+				# embed : shape = (batch_size, time_step_size, embedding_size)
+		embed = tf.unstack(embed, self.time_step_size, 1)
+				# embed : shape = (batch_size, embedding_size) * time_step_size
+		
+		# embedding visualizaion
+		embed_config = projector.ProjectorConfig()
+		embedding = embed_config.embeddings.add()
+		embedding.tensor_name = embeddings.name
+		embedding.metadata_path = os.path.join('/tmp', 'metadata.tsv')
+		summary_writer = tf.summary.FileWriter('/tmp')
+		projector.visualize_embeddings(summary_writer, embed_config)
 
 
-	'''
-	outputs = []
-	lstm_cell = tf.contrib.rnn.BasicRNNCell(lstm_size)
-	state = tf.zeros([batch_size, lstm_cell.state_size])
-	for time_step in range(time_step_size):
-		cell_output, state = lstm_cell(train_X[:, time_step], state)
-		outputs.append(cell_output)
+		lstm_cell = tf.contrib.rnn.BasicLSTMCell(self.lstm_size)
 
-	output = tf.reshape(tf.concat(axis=1, values=ouputs), [-1, lstm_size])
-	softmax_w = tf.get_variable(
-		[lstm_size, vocab_size],dtype=tf.float32)
-	softmax_b = tf.get_variable(
-		[vocab_size], dtype=tf.float32)
-	logits = tf.matmul(output, softmax_w) + softmax_b
+		lstm_cell_with_drop = tf.contrib.rnn.DropoutWrapper(
+															lstm_cell, output_keep_prob=self.keep_prob)
+		multi_lstm_cell = tf.contrib.rnn.MultiRNNCell(
+															[lstm_cell_with_drop for _ in range(self.num_lstm_layer)])
+	
+		outputs, states = tf.contrib.rnn.static_rnn(multi_lstm_cell, embed, sequence_length=self.seqlen, dtype=tf.float32)
+	
+		outputs = tf.stack(outputs)  
+			# outputs : shape=(max_len_context, batch_size, lstm_size)
+		outputs = tf.transpose(outputs, [1,0,2])  
+			# outputs : shape=(batch_size, max_len_context, lstm_size)
 
-	loss = tf.contrib.legacy_seq2seq.sequence_loss_by_example(
-		[logits],
-		[tf.reshape(train_Y, [-1])],
-		[tf.ones([batch_size * time_step_size], dtype=tf.float32)])
+		tmp = tf.shape(outputs)[0]
 
-	cost = tf.reduce_sum(loss) / batch_size
-	'''
+		index = tf.range(0, tmp) * self.time_step_size + (self.seqlen - 1) 
+			# index : shape=(batch_size)
+		outputs = tf.gather(tf.reshape(outputs, [-1, self.lstm_size]), index)
+			# outputs : shape=(batch_size, lstm_size)
+		pred = tf.matmul(outputs, w) + b  
+			# pred : shape=(batch_size, 2)
+		
+		self.cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=self.y, logits=pred))
+		tf.summary.scalar("cost_summary", self.cost)
+		
+		correct_pred = tf.equal(tf.argmax(pred,1), tf.argmax(self.y,1))
+		self.accuracy = tf.reduce_mean(tf.cast(correct_pred, tf.float32))
+	
+
+		self.global_step = tf.Variable(0, name="global_step", trainable=False)
+		tvars = tf.trainable_variables()
+		grads, _ = tf.clip_by_global_norm(tf.gradients(self.cost, tvars), self.max_grad_norm)
+
+
+		optimizer = tf.train.AdamOptimizer(learning_rate=self.lr)
+		self.train = optimizer.apply_gradients(
+											zip(grads, tvars),
+											global_step = self.global_step)
+		self.new_lr = tf.placeholder(tf.float32, shape=[])
+		
+		self.lr_update = tf.assign(self.lr, self.new_lr)
+
+		tf.summary.scalar("learning rate", self.lr)
+
+		self.merged = tf.summary.merge_all()
+
+
+		end = time.localtime()
+		build_time = end.tm_hour*2400 + end.tm_min*60 + end.tm_sec - (now.tm_hour*2400 + now.tm_min*60 + now.tm_sec)
+		print("== lstm build time : {}".format(build_time))
+
+
+	def assign_lr(self, lr_value):
+		sess = self.session
+		sess.run(self.lr_update, feed_dict={self.new_lr : lr_value})
+
+
+	def cnn(self):
+		self.x = tf.placeholder(tf.int32, [None, self.sequence_length])
+		self.y = tf.placeholder(tf.int32, [None, 2])
+	
+		embedding_table = tf.Variable(tf.random_uniform([self.vocab_size, self.embedding_size], -1.0, 1.0))
+		embedded = tf.nn.embedding_lookup(embedding_table, self.x)
+		embeddings = tf.expand_dims(embedded, -1)
+		print("embeddings", embeddings)
+
+		pooled_outputs = []
+		for i, filter_size in enumerate(self.filter_sizes):
+			with tf.name_scope("conv-maxpool-{}".format(filter_size)):
+				filter_shape = [filter_size, self.embedding_size, 1, self.num_filters]
+				W = tf.Variable(tf.random_normal(filter_shape), name="W")
+				B = tf.Variable(tf.constant(0.1, shape=[self.num_filters]), name="B")
+				conv = tf.nn.conv2d(
+								embeddings, W, strides=[1,1,1,1], padding='VALID', name='conv')
+				print("conv", conv)
+				h = tf.nn.relu(tf.nn.bias_add(conv, B), name='relu')
+				print("h", h)
+				pooled = tf.nn.max_pool(
+									h, ksize=[1, self.sequence_length - filter_size + 1, 1, 1],
+									strides=[1,1,1,1], padding='VALID', name='pool')
+				pooled_outputs.append(pooled)
+				print("pooled_outputs", pooled_outputs)
+
+		num_filters_total = self.num_filters * len(self.filter_sizes)
+		self.h_pool = tf.concat(pooled_outputs, 3)
+		print(self.h_pool)
+		self.h_pool_flat = tf.reshape(self.h_pool, [-1, num_filters_total])
+		print(self.h_pool_flat)
+
+		self.keep_prob = tf.placeholder(tf.float32)
+
+		with tf.name_scope("dropout"):
+			self.h_drop = tf.nn.dropout(self.h_pool_flat, self.keep_prob)
+
+		
+		with tf.name_scope("output"):
+			W = tf.get_variable("W", shape=[num_filters_total, 2],
+													initializer=tf.contrib.layers.xavier_initializer())
+			b = tf.Variable(tf.constant(0.1, shape=[2]), name="b")
+			self.scores = tf.nn.xw_plus_b(self.h_drop, W, b, name="scores")
+			print(self.scores)
+			self.predictions = tf.argmax(self.scores, 1, name="predictions")
+			print(self.predictions)
+
+		with tf.name_scope("loss"):
+			losses = tf.nn.softmax_cross_entropy_with_logits(logits=self.scores, labels=self.y)
+			self.cost = tf.reduce_mean(losses)
+
+		with tf.name_scope("accuracy"):
+			correct_predictions = tf.equal(self.predictions, tf.argmax(self.y, 1))
+			self.accuracy = tf.reduce_mean(tf.cast(correct_predictions, "float"), name="accuracy")
+
+		self.global_step = tf.Variable(0, name="global_step", trainable=False)
+		optimizer = tf.train.AdamOptimizer(self.lr)
+		grads_and_vars = optimizer.compute_gradients(self.cost)
+		self.train = optimizer.apply_gradients(grads_and_vars, global_step=self.global_step)
+
+		
 
 

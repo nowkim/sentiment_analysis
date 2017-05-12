@@ -1,15 +1,16 @@
 import numpy as np
 import os
+import sys
 import re
 import math
+import gensim
 
 
-def read_data(config):
+def gensim_word2vec(config):
+	print("word embedding by gensim")
 	sentiments = ['neg', 'pos']
-	train_data = []
-	test_data = []
+	sentences = []
 	max_len_context = 0
-
 
 	###  read   ###
 	for sentiment in sentiments:
@@ -17,37 +18,127 @@ def read_data(config):
 		for roots, dirs, files in os.walk(os.path.join(config.data_dir, sentiment)):
 			for file_name in files:
 				with open(os.path.join(roots, file_name), "r", encoding='utf-8', errors='ignore') as f:
-					data_idx += 1
+					while True:
+						line = f.readline()
+						if not line: break
+						words = tokenize(line)
+						if len(words) > max_len_context:
+							max_len_context = len(words)
+						sentences.append(words)
+				paras.append(sentences)
+	
+	print("the number of sentences : {}".format(len(sentences)))
+	print("max len context : {}".format(max_len_context))
+
+
+	model = gensim.models.word2vec.Word2Vec(sentences, size=100, window=5, min_count=5, workers=4)
+
+
+
+
+def read_data(config):
+	sentiments = ['neg', 'pos']
+	all_data = []
+	max_len_context = 0
+	train_data = []
+	valid_data = []
+	test_data = []
+	data = {}
+
+	'''
+	###  read   ###
+	for sentiment in sentiments:
+		for roots, dirs, files in os.walk(os.path.join(config.data_dir, sentiment)):
+			for file_name in files:
+				with open(os.path.join(roots, file_name), "r", encoding='utf-8', errors='ignore') as f:
 					context = tokenize(str(f.readlines()))
 					if len(context) > max_len_context:
 						max_len_context = len(context)
-					if data_idx <= len(files) * config.train_data_ratio * 0.1:
-						train_data.append({"context" : context, "sentiment" : sentiment})
-					elif data_idx <= len(files) * 0.1:
-						test_data.append({"context" : context, "sentiment" : sentiment})
-					else:
-						break
+					all_data.append({'context' : context, 'sentiment' : sentiment, 'seqlen' : len(context)})
+	'''
+	###  read   ###
+	for sentiment in sentiments:
+		with open(os.path.join(config.data_dir, "rt-polarity.{}".format(sentiment)), "r", encoding='utf-8', errors='ignore') as f:
+			while True:
+				context = f.readline().split()
+				if not context: break
+				if len(context) > max_len_context:
+					max_len_context = len(context)
+				all_data.append({'context' : context, 'sentiment' : sentiment, 'seqlen' : len(context)})
+	# shuffle all data #
+	np.random.shuffle(all_data)
+	# padding #
+	all_data = padding(config, max_len_context, all_data)
 
+	train_data = all_data[:int(len(all_data)*config.train_data_ratio)]
+	valid_data = all_data[int(len(all_data)*config.train_data_ratio):int(len(all_data)*config.valid_data_ratio)]
+	test_data = all_data[int(len(all_data)*config.valid_data_ratio):]
+
+	print("Loading {} all data".format(len(all_data)))
 	print("Loading {} train data".format(len(train_data)))
+	print("Loading {} valid data".format(len(valid_data)))
 	print("Loading {} test data".format(len(test_data)))
+	
 	print("max length of context :  {}".format(max_len_context))
-	
-	
-	###  padding  ###
-	for data_idx, data in enumerate(train_data + test_data):
-		if (data_idx+1) % (len(train_data + test_data)*0.25) == 0:
-			print("{}% of the 'padding' process has been completed".format(int((data_idx+1)/len(train_data+test_data)*100)))
-		if len(data["context"]) < max_len_context:
-			for _ in range(len(data["context"]), max_len_context):
-				if data_idx < len(train_data+test_data) * config.train_data_ratio:
-					train_data[data_idx]["context"].append("$PAD$")
-				else:
-					test_data[data_idx - len(train_data)]["context"].append("$PAD$")
-	
-	np.random.shuffle(train_data)
-	np.random.shuffle(test_data)	
+		
+	data['train_data'] = train_data
+	data['valid_data'] = valid_data
+	data['test_data'] = test_data
 
-	return train_data, test_data, max_len_context
+	return data, max_len_context
+
+
+
+def padding(config, max_len_context, data):
+	###  padding  ###
+	for data_idx, contents in enumerate(data):
+		if len(contents['context']) < max_len_context:
+			for _ in range(len(contents['context']), max_len_context):
+				data[data_idx]['context'].append("$PAD$")
+	print("the 'padding' process has been completed")
+	
+	return data
+
+
+
+def cross_validation(config, all_data):
+	num_of_folds = config.cross_valid_k
+	
+	print("cross-validation : {}".format(config.cross_validation))
+	test_data = all_data[int(len(all_data)*config.train_data_ratio):len(all_data)]
+	print('test data len', len(test_data))
+	cross_data = []
+	data = {}
+	fold_size = int(len(all_data)*config.train_data_ratio) // config.cross_valid_k
+	for fold_idx in range(config.cross_valid_k) :
+		print("fold {}".format(fold_idx+1))
+		train_data = []
+		valid_data = []
+		cross_data_tmp = {}
+		train_start = fold_idx * fold_size
+		valid_start = int((fold_size*(fold_idx+num_of_folds*config.train_data_ratio))%len(all_data))
+		train_end = int(train_start+fold_size*num_of_folds*config.train_data_ratio)
+		valid_end = int(valid_start+fold_size)
+		print(train_start, train_end, valid_start, valid_end)
+		
+		if train_end <= len(all_data):
+			train_data = all_data[train_start:train_end]
+		else:
+			train_tmp1 = all_data[0:train_end-len(all_data)]
+			train_tmp2 = all_data[train_start:len(all_data)]
+			train_data.extend(train_tmp1)
+			train_data.extend(train_tmp2)
+			
+		valid_data = all_data[valid_start:valid_end]
+		print(len(train_data), len(valid_data), len(test_data))
+		cross_data_tmp['train_data'] = train_data
+		cross_data_tmp['valid_data'] = valid_data
+		cross_data.append(cross_data_tmp)
+	
+	data['cross_data'] = cross_data
+	data['test_data'] = test_data
+
+	return data
 
 
 def tokenize(context):
@@ -77,6 +168,7 @@ def write_wordic(config, train_data):
 	print("There are {} words in the dictionary".format(len(wordic)))
 
 	return wordic
+
 
 
 def one_hot(data_X, data_Y, max_len_context, wordic):
