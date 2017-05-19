@@ -2,9 +2,10 @@ import numpy as np
 import tensorflow as tf
 import sys
 import time
+import copy
 
 from config import get_config
-from prepro import read_data, write_wordic, gensim_word2vec
+from prepro import read_data, write_wordic, gensim_word2vec, word2index
 from model import senti_anal_model
 from evaluate import run_epoch
 
@@ -17,11 +18,14 @@ def main():
 
 	# read data
 	data, max_len_context = read_data(config)
+		
+	data['train_data'] = data['train_data'] + data['valid_data']
 	
 	# write a word dictionary
 	wordic = write_wordic(config, data['train_data'])
-
 	
+	
+
 	with tf.Graph().as_default():
 		tf.logging.set_verbosity(tf.logging.ERROR)
 	
@@ -41,7 +45,7 @@ def main():
 			now = time.localtime()
 			print("current time {}:{}:{}".format(now.tm_hour, now.tm_min, now.tm_sec))
 			run_epoch(config, Model, wordic, step='train', data=data['train_data'])
-			val_acc += run_epoch(config, Model, wordic, step='valid', data=data['valid_data'])
+			val_acc += run_epoch(config, Model, wordic, step='valid', data=data['test_data'])
 			
 			end = time.localtime()
 			epoch_time = end.tm_hour*3600 + end.tm_min*60 + end.tm_sec - (now.tm_hour*3600 + now.tm_min*60 + now.tm_sec)
@@ -50,11 +54,9 @@ def main():
 		val_acc = val_acc / config.max_epoch
 		print("validation accuracy : ", round(val_acc,3))
 
-		#acc = evaluate(sess, config, Model, data=data)
-				
-		saver.save(sess, config.save_path)
 
 
+		
 if __name__ == "__main__":
 	main()
 

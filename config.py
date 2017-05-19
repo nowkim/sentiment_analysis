@@ -4,7 +4,7 @@ import tensorflow as tf
 def get_config():
 	flags = tf.app.flags
 
-	flags.DEFINE_string("data_dir", "data/rt-polaritydata", "Data dir")
+	flags.DEFINE_string("data_dir", "data/txt_sentoken", "Data dir")
 	
 	flags.DEFINE_string("word_freq_limit", 5, "Data dir")
 	flags.DEFINE_string("save_path", "/tmp/model.ckpt", "saver.save path")
@@ -22,7 +22,7 @@ def get_config():
 	flags.DEFINE_string("embedding_size", 300, "50, 100, 200, 300 only")
 
 	# LSTM
-	flags.DEFINE_string("lstm_hidden_size", 200, "hidden size of lstm")
+	flags.DEFINE_string("lstm_hidden_size", 100, "hidden size of lstm")
 	flags.DEFINE_string("keep_prob", 0.5, "drop out")
 	flags.DEFINE_string("num_lstm_layer", 1, "the number of lstm layers")
 	flags.DEFINE_string("lr", 1e-3, "learning rate")
@@ -36,7 +36,7 @@ def get_config():
 
 	# Train
 	flags.DEFINE_string("batch_size", 40, "Batch size")
-	flags.DEFINE_string("max_epoch", 100, "epoch")
+	flags.DEFINE_string("max_epoch", 30, "epoch")
 
 
 	config = flags.FLAGS

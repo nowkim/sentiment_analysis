@@ -45,7 +45,7 @@ def read_data(config):
 	test_data = []
 	data = {}
 
-	'''
+	
 	###  read   ###
 	for sentiment in sentiments:
 		for roots, dirs, files in os.walk(os.path.join(config.data_dir, sentiment)):
@@ -65,6 +65,8 @@ def read_data(config):
 				if len(context) > max_len_context:
 					max_len_context = len(context)
 				all_data.append({'context' : context, 'sentiment' : sentiment, 'seqlen' : len(context)})
+	'''
+
 	# shuffle all data #
 	np.random.shuffle(all_data)
 	# padding #
@@ -196,20 +198,20 @@ def one_hot(data_X, data_Y, max_len_context, wordic):
 
 
 def word2index(data_X, data_Y, wordic):
-	input_X = data_X
-	input_Y = np.array([[]])
-	for i, para in enumerate(input_X):
+	input_x = data_X
+	input_y = np.array([[]])
+	for i, para in enumerate(input_x):
 		for j, word in enumerate(para):
 			if word in wordic:
-				input_X[i][j] = wordic.index(word)
+				input_x[i][j] = wordic.index(word)
 			else:
-				input_X[i][j] = wordic.index('$UNK$')
+				input_x[i][j] = wordic.index('$UNK$')
 	for loop, senti in enumerate(data_Y):
 		if loop == 0:
-			input_Y = np.array([[int(data_Y[loop]=="neg"), int(data_Y[loop]=="pos")]])
+			input_y = np.array([[int(data_Y[loop]=="neg"), int(data_Y[loop]=="pos")]])
 		else:
-			input_Y = np.concatenate((input_Y, np.array([[int(data_Y[loop]=="neg"), int(data_Y[loop]=="pos")]])))
+			input_y = np.concatenate((input_y, np.array([[int(data_Y[loop]=="neg"), int(data_Y[loop]=="pos")]])))
 
-	return input_X, input_Y
+	return input_x, input_y
 
 

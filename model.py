@@ -30,6 +30,10 @@ class senti_anal_model(object):
 		self.num_filters = config.num_filters
 
 		self.lstm()
+		self.initialize()
+
+		
+	def initialize(self):
 		self.session.run(tf.global_variables_initializer())
 
 	def lstm(self):
@@ -131,7 +135,7 @@ class senti_anal_model(object):
 
 
 		end = time.localtime()
-		build_time = end.tm_hour*2400 + end.tm_min*60 + end.tm_sec - (now.tm_hour*2400 + now.tm_min*60 + now.tm_sec)
+		build_time = end.tm_hour*3600 + end.tm_min*60 + end.tm_sec - (now.tm_hour*3600 + now.tm_min*60 + now.tm_sec)
 		print("== lstm build time : {}".format(build_time))
 
 
@@ -199,4 +203,7 @@ class senti_anal_model(object):
 		optimizer = tf.train.AdamOptimizer(self.lr)
 		grads_and_vars = optimizer.compute_gradients(self.cost)
 		self.train = optimizer.apply_gradients(grads_and_vars, global_step=self.global_step)
+
+		
+
 
